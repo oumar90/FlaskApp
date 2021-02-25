@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for
-
+from flask_security import login_required
 from models import Post, Tag
 from .forms import PostForm
 from app import db
@@ -8,6 +8,7 @@ posts = Blueprint('posts', __name__, template_folder='templates')
 
 
 @posts.route('/create', methods=['POST', 'GET'])
+@login_required
 def post_create():
     form = PostForm()
 
@@ -51,11 +52,26 @@ def posts_list():
 
 @posts.route('/<slug>')
 def post_detail(slug):
-    post = Post.query.filter(Post.slug==slug).first()
+    post = Post.query.filter(Post.slug==slug).first_or_404()
     return render_template('posts/post_detail.html', post=post)
 
 
 @posts.route('/tags/<slug>')
 def tag_detail(slug):
-    tag = Tag.query.filter(Tag.slug==slug).first()
+    tag = Tag.query.filter(Tag.slug==slug).first_or_404()
     return render_template('posts/tag_detail.html', tag=tag)
+
+
+@posts.route('/<slug>/edit', methods=['GET', 'POST'])
+@login_required
+def post_update(slug):
+    post = Post.query.filter(Post.slug==slug).first_or_404()
+
+    if request.method == 'POST':
+        form = PostForm(formdata=request.form, obj=post)
+        form.populate_obj(post)
+        db.session.commit()
+        return redirect(url_for('posts.post_detail', slug=post.slug))
+
+    form = PostForm(obj=post)
+    return render_template("posts/edit.html", post=post, form=form)
